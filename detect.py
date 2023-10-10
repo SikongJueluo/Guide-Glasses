@@ -18,13 +18,16 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 from stereo.dianyuntu_yolo import preprocess, undistortion, getRectifyTransform, draw_line, rectifyImage, \
     stereoMatchSGBM
 from stereo import stereoconfig
+
 num = 200
 dis = 0
 label = 1
+
+
 def detect(save_img=False):
     num = 200
-    global  dis
-    global  label
+    global dis
+    global label
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
@@ -84,7 +87,8 @@ def detect(save_img=False):
             img = img.unsqueeze(0)
 
         # Warmup
-        if device.type != 'cpu' and (old_img_b != img.shape[0] or old_img_h != img.shape[2] or old_img_w != img.shape[3]):
+        if device.type != 'cpu' and (
+                old_img_b != img.shape[0] or old_img_h != img.shape[2] or old_img_w != img.shape[3]):
             old_img_b = img.shape[0]
             old_img_h = img.shape[2]
             old_img_w = img.shape[3]
@@ -93,7 +97,7 @@ def detect(save_img=False):
 
         # Inference
         t1 = time_synchronized()
-        with torch.no_grad():   # Calculating gradients would cause a GPU memory leak
+        with torch.no_grad():  # Calculating gradients would cause a GPU memory leak
             pred = model(img, augment=opt.augment)[0]
         t2 = time_synchronized()
 
@@ -165,8 +169,8 @@ def detect(save_img=False):
                             cv2.putText(im0, text_cxy, (int(x), int(y)), cv2.FONT_ITALIC, 1.2, (0, 0, 255), 3)
 
                             print('点 (%d, %d) 的三维坐标 (x:%.1fcm, y:%.1fcm, z:%.1fcm)' % (
-                            int(x), int(y), points_3d[int(y), int(x), 0] / 10, points_3d[int(y), int(x), 1] / 10,
-                            points_3d[int(y), int(x), 2] / 10))
+                                int(x), int(y), points_3d[int(y), int(x), 0] / 10, points_3d[int(y), int(x), 1] / 10,
+                                points_3d[int(y), int(x), 2] / 10))
 
                             dis = ((points_3d[int(y), int(x), 0] ** 2 + points_3d[int(y), int(x), 1] ** 2 + points_3d[
                                 int(y), int(x), 2] ** 2) ** 0.5) / 10
@@ -229,10 +233,12 @@ def detect(save_img=False):
 
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-        #print(f"Results saved to {save_dir}{s}")
+        # print(f"Results saved to {save_dir}{s}")
 
     print(f'Done. ({time.time() - t0:.3f}s)')
     time.sleep(1)
+
+
 def voice_broadcast():
     while True:
         dis_voice = dis
@@ -240,19 +246,20 @@ def voice_broadcast():
         engine = pyttsx4.init()
         engine.setProperty('rate', 500)
         engine.setProperty('volume', 1)
-        if(dis_voice > 100 and dis_voice <= 500 and label_voice != 0):
-            engine.say('请注意，距离您%0.1f米处有%s' % (dis_voice/100, label_voice))
+        if (dis_voice > 100 and dis_voice <= 1000 and label_voice != 0):
+            engine.say('请注意，距离您%0.1f米处有%s' % (dis_voice / 100, label_voice))
             engine.runAndWait()
             engine.stop()
         time.sleep(1)
 
+
 def main():
-        t1 = threading.Thread(target = detect)
-        t2 = threading.Thread(target = voice_broadcast)
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
+    t1 = threading.Thread(target=detect)
+    t2 = threading.Thread(target=voice_broadcast)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 
 
 if __name__ == '__main__':
@@ -277,7 +284,7 @@ if __name__ == '__main__':
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
     opt = parser.parse_args()
     print(opt)
-    #check_requirements(exclude=('pycocotools', 'thop'))
+    # check_requirements(exclude=('pycocotools', 'thop'))
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
