@@ -19,15 +19,12 @@ from stereo.dianyuntu_yolo import preprocess, undistortion, getRectifyTransform,
     stereoMatchSGBM
 from stereo import stereoconfig
 
-num = 200
-dis = 0
-label = 1
-
 
 def detect(save_img=False):
-    num = 200
+    global num
     global dis
     global label
+
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
@@ -185,51 +182,28 @@ def detect(save_img=False):
                                           (int(xyxy[0] + (xyxy[2] - xyxy[0]) + 5 + 220), int(xyxy[1] + 150)),
                                           colors[int(cls)], -1)
                             cv2.putText(im0, text_x, (int(xyxy[0] + (xyxy[2] - xyxy[0]) + 5), int(xyxy[1] + 30)),
-                                        cv2.FONT_ITALIC, 1.2, (255, 255, 255), 3)
+                                        cv2.FONT_ITALIC, 1.5, (255, 255, 255), 3)
                             cv2.putText(im0, text_y, (int(xyxy[0] + (xyxy[2] - xyxy[0]) + 5), int(xyxy[1] + 65)),
-                                        cv2.FONT_ITALIC, 1.2, (255, 255, 255), 3)
+                                        cv2.FONT_ITALIC, 1.5, (255, 255, 255), 3)
                             cv2.putText(im0, text_z, (int(xyxy[0] + (xyxy[2] - xyxy[0]) + 5), int(xyxy[1] + 100)),
-                                        cv2.FONT_ITALIC, 1.2, (255, 255, 255), 3)
+                                        cv2.FONT_ITALIC, 1.5, (255, 255, 255), 3)
                             cv2.putText(im0, text_dis, (int(xyxy[0] + (xyxy[2] - xyxy[0]) + 5), int(xyxy[1] + 145)),
-                                        cv2.FONT_ITALIC, 1.2, (255, 255, 255), 3)
+                                        cv2.FONT_ITALIC, 1.5, (255, 255, 255), 3)
 
                             t4 = time_synchronized()
                             print(f'Done. ({t4 - t3:.3f}s)')
 
-                    print(f'{s}Done. ({t2 - t1:.3f}s)')
+                    # print(f'{s}Done. ({t2 - t1:.3f}s)')
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
-            # Stream results
-            '''if view_img:
-                cv2.imshow(str(p), im0)
-                cv2.waitKey(1)  # 1 millisecond'''
-
             # Save results (image with detections)
             if save_img:
-                if dataset.mode == 'image':
-                    cv2.imwrite(save_path, im0)
-                    print(f" The image with the result is saved in: {save_path}")
-                else:  # 'video' or 'stream'
-                    if vid_path != save_path:  # new video
-                        vid_path = save_path
-                        if isinstance(vid_writer, cv2.VideoWriter):
-                            vid_writer.release()  # release previous video writer
-                        if vid_cap:  # video
-                            fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                            w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                            h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        else:  # stream
-                            fps, w, h = 30, im0.shape[1], im0.shape[0]
-                            save_path += '.mp4'
-                        vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-                    vid_writer.write(im0)
-                    cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
-                    cv2.resizeWindow("Video", 2560, 720)
-                    cv2.moveWindow("Video", 0, 0)
-                    cv2.imshow("Video", im0)
-                    cv2.waitKey(1)
+                result_save(dataset, save_path, im0, vid_path, vid_writer, vid_cap)
+
+        if exit_flag.is_set():
+            break
 
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
@@ -240,6 +214,9 @@ def detect(save_img=False):
 
 
 def voice_broadcast():
+    """
+    when something in front of the camera just tell you what and distance
+    """
     while True:
         dis_voice = dis
         label_voice = label
@@ -250,16 +227,49 @@ def voice_broadcast():
             engine.say('请注意，距离您%0.1f米处有%s' % (dis_voice / 100, label_voice))
             engine.runAndWait()
             engine.stop()
+
+        # close the thread
+        if exit_flag.is_set():
+            break
         time.sleep(1)
 
 
+def result_save(dataset, save_path, image, vid_path, vid_writer, vid_cap):
+    if dataset.mode == 'image':
+        cv2.imwrite(save_path, image)
+        print(f" The image with the result is saved in: {save_path}")
+    else:  # 'video' or 'stream'
+        if vid_path != save_path:  # new video
+            vid_path = save_path
+            if isinstance(vid_writer, cv2.VideoWriter):
+                vid_writer.release()  # release previous video writer
+            if vid_cap:  # video
+                fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            else:  # stream
+                fps, w, h = 30, image.shape[1], image.shape[0]
+                save_path += '.mp4'
+            vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+        vid_writer.write(image)
+        cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Video", 2560, 720)
+        cv2.moveWindow("Video", 0, 0)
+        cv2.imshow("Video", image)
+        cv2.waitKey(1)
+
+
 def main():
-    t1 = threading.Thread(target=detect)
-    t2 = threading.Thread(target=voice_broadcast)
-    t1.start()
-    t2.start()
-    t1.join()
-    t2.join()
+    task1 = threading.Thread(target=detect)
+    task2 = threading.Thread(target=voice_broadcast)
+    task1.start()
+    task2.start()
+    # recognize the task is alive or not
+    while task1.is_alive() and task2.is_alive():
+        time.sleep(1)
+    exit_flag.set()
+    task1.join()
+    task2.join()
 
 
 if __name__ == '__main__':
@@ -285,6 +295,12 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     print(opt)
     # check_requirements(exclude=('pycocotools', 'thop'))
+
+    # init the config
+    exit_flag = threading.Event()
+    num = 200
+    dis = 0
+    label = 0
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
