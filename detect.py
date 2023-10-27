@@ -139,7 +139,7 @@ def detect(save_img=False):
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
                         x = (xyxy[0] + xyxy[2]) / 2
                         y = (xyxy[1] + xyxy[3]) / 2
-                        if (x <= 1280):
+                        if x <= 1280:
                             t3 = time_synchronized()
                             p = num
 
