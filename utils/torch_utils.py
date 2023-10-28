@@ -1,10 +1,8 @@
-# YOLOR PyTorch utils
+# PyTorch utils
 
-import datetime
 import logging
 import math
 import os
-import platform
 import subprocess
 import time
 from contextlib import contextmanager
@@ -45,24 +43,17 @@ def init_torch_seeds(seed=0):
         cudnn.benchmark, cudnn.deterministic = True, False
 
 
-def date_modified(path=__file__):
-    # return human-readable file modification date, i.e. '2021-3-26'
-    t = datetime.datetime.fromtimestamp(Path(path).stat().st_mtime)
-    return f'{t.year}-{t.month}-{t.day}'
-
-
-def git_describe(path=Path(__file__).parent):  # path must be a directory
+def git_describe():
     # return human-readable git description, i.e. v5.0-5-g3e25f1e https://git-scm.com/docs/git-describe
-    s = f'git -C {path} describe --tags --long --always'
-    try:
-        return subprocess.check_output(s, shell=True, stderr=subprocess.STDOUT).decode()[:-1]
-    except subprocess.CalledProcessError as e:
-        return ''  # not a git repository
+    if Path('.git').exists():
+        return subprocess.check_output('git describe --tags --long --always', shell=True).decode('utf-8')[:-1]
+    else:
+        return ''
 
 
 def select_device(device='', batch_size=None):
     # device = 'cpu' or '0' or '0,1,2,3'
-    s = f'YOLOR 🚀 {git_describe() or date_modified()} torch {torch.__version__} '  # string
+    s = f'YOLOv5 {git_describe()} torch {torch.__version__} '  # string
     cpu = device.lower() == 'cpu'
     if cpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # force torch.cuda.is_available() = False
@@ -82,7 +73,7 @@ def select_device(device='', batch_size=None):
     else:
         s += 'CPU\n'
 
-    logger.info(s.encode().decode('ascii', 'ignore') if platform.system() == 'Windows' else s)  # emoji-safe
+    logger.info(s)  # skip a line
     return torch.device('cuda:0' if cuda else 'cpu')
 
 
@@ -129,7 +120,7 @@ def profile(x, ops, n=100, device=None):
         s_in = tuple(x.shape) if isinstance(x, torch.Tensor) else 'list'
         s_out = tuple(y.shape) if isinstance(y, torch.Tensor) else 'list'
         p = sum(list(x.numel() for x in m.parameters())) if isinstance(m, nn.Module) else 0  # parameters
-        print(f'{p:12}{flops:12.4g}{dtf:16.4g}{dtb:16.4g}{str(s_in):>24s}{str(s_out):>24s}')
+        print(f'{p:12.4g}{flops:12.4g}{dtf:16.4g}{dtb:16.4g}{str(s_in):>24s}{str(s_out):>24s}')
 
 
 def is_parallel(model):
@@ -191,7 +182,7 @@ def fuse_conv_and_bn(conv, bn):
     # prepare filters
     w_conv = conv.weight.clone().view(conv.out_channels, -1)
     w_bn = torch.diag(bn.weight.div(torch.sqrt(bn.eps + bn.running_var)))
-    fusedconv.weight.copy_(torch.mm(w_bn, w_conv).view(fusedconv.weight.shape))
+    fusedconv.weight.copy_(torch.mm(w_bn, w_conv).view(fusedconv.weight.size()))
 
     # prepare spatial bias
     b_conv = torch.zeros(conv.weight.size(0), device=conv.weight.device) if conv.bias is None else conv.bias
@@ -301,74 +292,3 @@ class ModelEMA:
     def update_attr(self, model, include=(), exclude=('process_group', 'reducer')):
         # Update EMA attributes
         copy_attr(self.ema, model, include, exclude)
-
-
-class BatchNormXd(torch.nn.modules.batchnorm._BatchNorm):
-    def _check_input_dim(self, input):
-        # The only difference between BatchNorm1d, BatchNorm2d, BatchNorm3d, etc
-        # is this method that is overwritten by the sub-class
-        # This original goal of this method was for tensor sanity checks
-        # If you're ok bypassing those sanity checks (eg. if you trust your inference
-        # to provide the right dimensional inputs), then you can just use this method
-        # for easy conversion from SyncBatchNorm
-        # (unfortunately, SyncBatchNorm does not store the original class - if it did
-        #  we could return the one that was originally created)
-        return
-
-def revert_sync_batchnorm(module):
-    # this is very similar to the function that it is trying to revert:
-    # https://github.com/pytorch/pytorch/blob/c8b3686a3e4ba63dc59e5dcfe5db3430df256833/torch/nn/modules/batchnorm.py#L679
-    module_output = module
-    if isinstance(module, torch.nn.modules.batchnorm.SyncBatchNorm):
-        new_cls = BatchNormXd
-        module_output = BatchNormXd(module.num_features,
-                                               module.eps, module.momentum,
-                                               module.affine,
-                                               module.track_running_stats)
-        if module.affine:
-            with torch.no_grad():
-                module_output.weight = module.weight
-                module_output.bias = module.bias
-        module_output.running_mean = module.running_mean
-        module_output.running_var = module.running_var
-        module_output.num_batches_tracked = module.num_batches_tracked
-        if hasattr(module, "qconfig"):
-            module_output.qconfig = module.qconfig
-    for name, child in module.named_children():
-        module_output.add_module(name, revert_sync_batchnorm(child))
-    del module
-    return module_output
-
-
-class TracedModel(nn.Module):
-
-    def __init__(self, model=None, device=None, img_size=(640,640)): 
-        super(TracedModel, self).__init__()
-        
-        print(" Convert model to Traced-model... ") 
-        self.stride = model.stride
-        self.names = model.names
-        self.model = model
-
-        self.model = revert_sync_batchnorm(self.model)
-        self.model.to('cpu')
-        self.model.eval()
-
-        self.detect_layer = self.model.model[-1]
-        self.model.traced = True
-        
-        rand_example = torch.rand(1, 3, img_size, img_size)
-        
-        traced_script_module = torch.jit.trace(self.model, rand_example, strict=False)
-        #traced_script_module = torch.jit.script(self.model)
-        traced_script_module.save("traced_model.pt")
-        print(" traced_script_module saved! ")
-        self.model = traced_script_module
-        self.model.to(device)
-        self.detect_layer.to(device)
-        print(" model is traced! \n") 
-
-    def forward(self, x, augment=False, profile=False):
-        out = self.model(x)
-        out = self.detect_layer(out)
-        return out

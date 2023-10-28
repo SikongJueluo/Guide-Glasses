@@ -1,0 +1,5 @@
+#video
+python detect_and_stereo_video_030.py
+#stream
+python detect_and_stereo_video_030.py --source 1
+
