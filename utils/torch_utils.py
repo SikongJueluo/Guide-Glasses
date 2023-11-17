@@ -21,7 +21,6 @@ except ImportError:
     thop = None
 logger = logging.getLogger(__name__)
 
-
 @contextmanager
 def torch_distributed_zero_first(local_rank: int):
     """

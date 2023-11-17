@@ -10,7 +10,8 @@ import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
 
-import numpy as np 
+import numpy as np
+import pyttsx4
 
 
 
@@ -39,6 +40,9 @@ from stereo.stereo import get_median,stereo_threading,MyThread
 #@jit
 #@vectorize(["float32 (float32 , float32 )"], target='cuda')
 
+dis_avg = 0
+x = 0
+label = 0
 
 def detect(save_img=False):  
     accel_frame = 0  
@@ -381,7 +385,7 @@ def detect(save_img=False):
                                 #print()        
                                 #print("num is %d"%len(dis_avg_new) )
                                 
-                                
+                                global dis_avg
                                 if(num!=0):  
                                     index_end = 0      
                                     dis_avg = get_median(dis_avg_new)
@@ -392,7 +396,7 @@ def detect(save_img=False):
 
 
                                 count2 = 0
-                                
+                                global x
                                 x = (xyxy[0] + xyxy[2]) / 2
                                 y = (xyxy[1] + xyxy[3]) / 2
 
@@ -447,9 +451,10 @@ def detect(save_img=False):
                                              |     
                                 '''
                                 if (dis_avg!=0):## Add bbox to image
-                                    label = f'{names[int(cls)]} {conf:.2f} '
-                                    plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-         
+                                    global label
+                                    label = f'{names[int(cls)]}'
+                                    im0 = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+
                                     #print center x y
                                     x_end = points_x[index_end]
                                     y_end = points_y[index_end]
@@ -556,17 +561,42 @@ def detect(save_img=False):
         print(f"Results saved to {save_dir}{s}")
 
     print(f'All Done. ({time.time() - t0:.3f}s)')
+    time.sleep(1)
 
+def voice_broadcast():
+    while True:
+        if (x<-600):
+            azimuth = "左侧"
+        elif(x>=-600 and x<=600):
+            azimuth = "前方"
+        else:azimuth = "右侧"
+        dis_voice = dis_avg
+        label_voice = label
+        engine = pyttsx4.init()
+        engine.setProperty('rate', 200)
+        engine.setProperty('volume', 1)
+        if (dis_voice > 1 and dis_voice <= 10 and label_voice != 0):
+            engine.say('请注意,%s距离您%0.1f米处有%s' % (azimuth, dis_voice, label_voice))
+            engine.runAndWait()
+            engine.stop()
+        time.sleep(1)
 
+def main():
+    t1 = threading.Thread(target=detect)
+    t2 = threading.Thread(target=voice_broadcast)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='./weights/yolov5s/yolov5s.pt', help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='./weights/yolov5/best.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='0', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+    parser.add_argument('--conf-thres', type=float, default=0.45, help='object confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.55, help='IOU threshold for NMS')
     parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
@@ -585,8 +615,7 @@ if __name__ == '__main__':
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
             for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
-                detect()
+                main()
                 strip_optimizer(opt.weights)              
         else:
-            detect()
-            
+            main()

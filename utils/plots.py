@@ -63,9 +63,15 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=3):
     if label:
         tf = max(tl - 1, 1)  # font thickness
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
-        c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
+        font_size = t_size[1]
+        font = ImageFont.truetype('msyh.ttc', font_size)
+        t_size = font.getbbox(label)
+        c2 = c1[0] + t_size[0], c1[1] - t_size[1]
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+        img_PIL = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(img_PIL)
+        draw.text((c1[0], c2[1] - 2), label, fill=(255, 255, 255), font=font)
+        return cv2.cvtColor(np.array(img_PIL), cv2.COLOR_RGB2BGR)
 
 
 def plot_one_box_PIL(box, img, color=None, label=None, line_thickness=None):
@@ -170,8 +176,8 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 cls = names[cls] if names else cls
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
-                    plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
-
+                    # plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
+                    mosaic = plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
         # Draw image filename labels
         if paths:
             label = Path(paths[i]).name[:40]  # trim to 40 char
