@@ -11,9 +11,17 @@ object_weight = {
 }
 
 #通过相对坐标判断是否进入碰撞体积,行人、动物等目标的y轴更大，因为其更有可能发生移动
+#个性化使用者身高体重判定碰撞箱
+def set_personalise(UserProfile):
+    '''
+    这里将用户的身高、体重、年龄传入，用于判断碰撞体积
+    主要判断依据为体重和身高
+    年龄用于判断用户可能发生的风险
+    '''
+    return
+
 
 #优先队列，用于储存对象判断优先级
-#个性化使用者身高体重判定碰撞箱 
 class PriorityQueue:
     def __init__(self):
         self._queue = []
