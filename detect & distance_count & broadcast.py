@@ -11,9 +11,9 @@ import torch.backends.cudnn as cudnn
 from numpy import random
 
 import numpy as np
-import pyttsx4
 
-
+import voice_
+import judge_priority
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -40,11 +40,16 @@ from stereo.stereo import get_median,stereo_threading,MyThread
 #@jit
 #@vectorize(["float32 (float32 , float32 )"], target='cuda')
 
-dis_avg = 0
-x = 0
-label = 0
 
-def detect(save_img=False):  
+
+def detect(save_img=False): 
+    ####
+    dis_avg = 0
+    x = 0
+    label = 0 
+    x_end = 0
+    y_end = 0
+    ####
     accel_frame = 0  
     source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
@@ -144,7 +149,7 @@ def detect(save_img=False):
 
             ###############################
             #stereo code
-            fps_set = 10 #setting the frame
+            fps_set = 60 #setting the frame
             if(accel_frame % fps_set == 0):
                 #t3 = time.time() # stereo time start 0.510s
                 #string = ''
@@ -183,7 +188,7 @@ def detect(save_img=False):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
-                # Print results
+                # Print results，打印识别目标的数量和结果
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]} {'s' * (n > 1)} , "  # add to string
@@ -257,6 +262,7 @@ def detect(save_img=False):
                                     t4 = time.time() # stereo time end
                                     print(f'{s}Stereo Done. ({t4 - t3:.3f}s)')
                                 
+                                #迭代计算3D点云，直到精度符合
                                 while( bool((0<x_0<1280) & (0<y_0<720))  ): #get dis point  "*" sreach
                                      count_x += 0.5
                                      x_0 += count_x*x_step
@@ -369,10 +375,10 @@ def detect(save_img=False):
                                             index += 1
                                      if(index>=precision):
                                         break
-   
-
-                                dis_avg_new = []
                                 
+                                #求平均距离
+                                dis_avg_new = []
+                                #这一段是为了去除离群点
                                 num = 0
                                 for i in range(0,precision):
                                     min_detect = min(points_detect)
@@ -381,22 +387,62 @@ def detect(save_img=False):
                                     if ((points_detect[i]!=0)&(min_detect < points_detect[i] < level_detect) ):
                                         dis_avg_new.append(points_detect[i])
                                         num += 1
-                                        
-                                #print()        
+
+                                        #print()        
                                 #print("num is %d"%len(dis_avg_new) )
-                                
-                                global dis_avg
+
+                                # global dis_avg
                                 if(num!=0):  
                                     index_end = 0      
-                                    dis_avg = get_median(dis_avg_new)
-                                    index_end = points_detect.index(dis_avg)
+                                    dis_avg = get_median(dis_avg_new) #取中位数
+                                    index_end = points_detect.index(dis_avg)#中位数索引
                                 else:
                                     dis_avg = 0
-                                    #print("match error!!!")  
+                                    #print("match error!!!") 
+                                ################################
+                                # 同上方法处理points_x数组
+                                    '''
+                                x_avg_new = []
+                                num_x = 0
+                                for i in range(0, precision):
+                                    min_x = min(points_x)
+                                    max_x = max(points_x)
+                                    level_x = min_x + (max_x - min_x) / 4
+                                    if ((points_x[i] != 0) & (min_x < points_x[i] < level_x)):
+                                        x_avg_new.append(points_x[i])
+                                        num_x += 1
+
+                                if(num_x != 0):  
+                                    index_end_x = 0      
+                                    x_avg = get_median(x_avg_new) #取中位数
+                                    index_end_x = points_x.index(x_avg)
+                                else:
+                                    x_avg = 0
+
+                                # 处理points_y数组
+                                y_avg_new = []
+                                num_y = 0
+                                for i in range(0, precision):
+                                    min_y = min(points_y)
+                                    max_y = max(points_y)
+                                    level_y = min_y + (max_y - min_y) / 4
+                                    if ((points_y[i] != 0) & (min_y < points_y[i] < level_y)):
+                                        y_avg_new.append(points_y[i])
+                                        num_y += 1
+
+                                if(num_y != 0):  
+                                    index_end_y = 0      
+                                    y_avg = get_median(y_avg_new) #取中位数
+                                    index_end_y = points_y.index(y_avg)
+                                else:
+                                    y_avg = 0
+                                    '''
+                                #################################       
+                                 
 
 
                                 count2 = 0
-                                global x
+                                # global x
                                 x = (xyxy[0] + xyxy[2]) / 2
                                 y = (xyxy[1] + xyxy[3]) / 2
 
@@ -430,9 +476,6 @@ def detect(save_img=False):
 
 
                         
-                                    
-
-                                        
                                 if(x>=1280):
                                    x = 1278
                                    print("x is out of index!")
@@ -451,7 +494,7 @@ def detect(save_img=False):
                                              |     
                                 '''
                                 if (dis_avg!=0):## Add bbox to image
-                                    global label
+                                    # global label
                                     label = f'{names[int(cls)]}'
                                     im0 = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
 
@@ -477,9 +520,12 @@ def detect(save_img=False):
                                     #only put dis on frame
                                     cv2.rectangle(im0,(int(x1+(x2-x1)),int(y1)),(int(x1+(x2-x1)+5+210),int(y1+40)),colors[int(cls)],-1);    
                                     cv2.putText(im0, text_dis_avg, (int(x1+(x2-x1)+5), int(y1+30)), cv2.FONT_ITALIC, 1.2, (255, 255, 255), 3)
-
-                      
-                      
+                    
+                    #将计算结果加载至判优函数
+                    judge_priority.set_avg(round(dis_avg,3),int(x),float(x_end)/1000,float(y_end)/1000,label)
+                voice_.set_avg()
+                judge_priority.clear()
+                    
 
             t5 = time_synchronized() # stereo time end
             # Print time (inference + NMS)
@@ -493,10 +539,13 @@ def detect(save_img=False):
                 print(f'{s}yolov5+stereo Done. ({t5 - t1:.3f}s)')
             #print(threading.active_count())                              #获取已激活的线程数
             #print(threading.enumerate())    # see the thread list，查看所有线程信息，一个<_MainThread(...)> 带多个 <Thread(...)>
-                
-
+            
+            #press "s" to talk for sttings
             #press "q" to stop the program.
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("s"):
+                voice_.allow_voice_setting()
+            elif key == ord("q"):
                  if save_txt or save_img:
                       s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
                  
@@ -505,6 +554,7 @@ def detect(save_img=False):
                  print(f"Results saved to {s}")
                  print(f'All Done. ({time.time() - t0:.3f}s)')
                  vid_writer.release()  # release previous video writer
+                 voice_.stop() # stop
                  exit()
                  #quit()
 
@@ -563,27 +613,11 @@ def detect(save_img=False):
     print(f'All Done. ({time.time() - t0:.3f}s)')
     time.sleep(1)
 
-def voice_broadcast():
-    while True:
-        if (x<-600):
-            azimuth = "左侧"
-        elif(x>=-600 and x<=600):
-            azimuth = "前方"
-        else:azimuth = "右侧"
-        dis_voice = dis_avg
-        label_voice = label
-        engine = pyttsx4.init()
-        engine.setProperty('rate', 200)
-        engine.setProperty('volume', 1)
-        if (dis_voice > 1 and dis_voice <= 10 and label_voice != 0):
-            engine.say('请注意,%s距离您%0.1f米处有%s' % (azimuth, dis_voice, label_voice))
-            engine.runAndWait()
-            engine.stop()
-        time.sleep(1)
+
 
 def main():
     t1 = threading.Thread(target=detect)
-    t2 = threading.Thread(target=voice_broadcast)
+    t2 = threading.Thread(target=voice_.voice_broadcast)
     t1.start()
     t2.start()
     t1.join()
@@ -592,12 +626,12 @@ def main():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='./weights/yolov5/best.pt', help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='./best.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='0', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.45, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.55, help='IOU threshold for NMS')
-    parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
