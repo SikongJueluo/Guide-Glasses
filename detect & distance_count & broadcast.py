@@ -398,46 +398,7 @@ def detect(save_img=False):
                                     index_end = points_detect.index(dis_avg)#中位数索引
                                 else:
                                     dis_avg = 0
-                                    #print("match error!!!") 
-                                ################################
-                                # 同上方法处理points_x数组
-                                    '''
-                                x_avg_new = []
-                                num_x = 0
-                                for i in range(0, precision):
-                                    min_x = min(points_x)
-                                    max_x = max(points_x)
-                                    level_x = min_x + (max_x - min_x) / 4
-                                    if ((points_x[i] != 0) & (min_x < points_x[i] < level_x)):
-                                        x_avg_new.append(points_x[i])
-                                        num_x += 1
-
-                                if(num_x != 0):  
-                                    index_end_x = 0      
-                                    x_avg = get_median(x_avg_new) #取中位数
-                                    index_end_x = points_x.index(x_avg)
-                                else:
-                                    x_avg = 0
-
-                                # 处理points_y数组
-                                y_avg_new = []
-                                num_y = 0
-                                for i in range(0, precision):
-                                    min_y = min(points_y)
-                                    max_y = max(points_y)
-                                    level_y = min_y + (max_y - min_y) / 4
-                                    if ((points_y[i] != 0) & (min_y < points_y[i] < level_y)):
-                                        y_avg_new.append(points_y[i])
-                                        num_y += 1
-
-                                if(num_y != 0):  
-                                    index_end_y = 0      
-                                    y_avg = get_median(y_avg_new) #取中位数
-                                    index_end_y = points_y.index(y_avg)
-                                else:
-                                    y_avg = 0
-                                    '''
-                                #################################       
+                                    #print("match error!!!")     
                                  
 
 
