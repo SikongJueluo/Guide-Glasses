@@ -128,11 +128,12 @@ def detect(save_img=False):
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
 
-
-
+        img_back = img.clone()
+        img = img[:, :, :, :img.shape[3]//2]
         # Inference 推理机
         t1 = time_synchronized()
         pred = model(img, augment=opt.augment)[0]
+        
 
         # Apply NMS
         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
@@ -141,7 +142,7 @@ def detect(save_img=False):
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
-        
+        img = img_back
         
  
         # Process detections
@@ -483,11 +484,13 @@ def detect(save_img=False):
 
                                     text_dis_avg = "dis:%0.2fm" %dis_avg
                                     #将dets转移到cpu，否则报错,MAX_TRACKS为最大跟踪数
-                                    MAX_TRACKS = 10
+                                    max_tracks = 5
                                     dets = det[:5].cpu()
                                     tracks = tracker.update(dets)
-                                    if len(tracks) > MAX_TRACKS:
-                                        tracks = tracks[-MAX_TRACKS:]
+                                    if len(tracks) > max_tracks:
+                                        tracks = tracks[-max_tracks:]
+                                        for track in tracks:
+                                            track[4] = track[4] - max_tracks
                                     for track in tracks:
                                         bbox = track[:4] # 跟踪框坐标
                                         indexID = int(track[4]) # 跟踪编号,通过编号识别对象进行跟踪
@@ -497,9 +500,9 @@ def detect(save_img=False):
                                         #only put dis on frame
                                         cv2.rectangle(im0,(int(x1+(x2-x1)),int(y1)),(int(x1+(x2-x1)+5+210),int(y1+40)),colors[int(cls)],-1);    
                                         cv2.putText(im0, text_dis_avg, (int(x1+(x2-x1)+5), int(y1+30)), cv2.FONT_ITALIC, 1.2, (255, 255, 255), 3)
-                            
-                    #将计算结果加载至判优函数
-                    judge_priority.set_avg(round(dis_avg,3),int(x),float(x_end)/1000,float(y_end)/1000,label)
+                                        #将计算结果加载至判优函数
+                                        judge_priority.set_avg(round(dis_avg,3),int(x),float(x_end)/1000,float(y_end)/1000,label)
+                
                 voice_.set_avg()
                 judge_priority.clear()
                     
