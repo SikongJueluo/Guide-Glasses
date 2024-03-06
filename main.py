@@ -128,11 +128,10 @@ def detect(save_img=False):
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
 
-        img_back = img.clone()
-        img = img[:, :, :, :img.shape[3]//2]
+        img1 = img[:, :, :, :img.shape[3]//2] # 这一句是因为双目摄像头会读取左右两个图像，这里只取左边的图像
         # Inference 推理机
         t1 = time_synchronized()
-        pred = model(img, augment=opt.augment)[0]
+        pred = model(img1, augment=opt.augment)[0]
         
 
         # Apply NMS
@@ -141,9 +140,8 @@ def detect(save_img=False):
 
         # Apply Classifier
         if classify:
-            pred = apply_classifier(pred, modelc, img, im0s)
-        img = img_back
-        
+            pred = apply_classifier(pred, modelc, img1, im0s)
+
  
         # Process detections
         for i, det in enumerate(pred):  # detections per image
@@ -500,9 +498,9 @@ def detect(save_img=False):
                                         #only put dis on frame
                                         cv2.rectangle(im0,(int(x1+(x2-x1)),int(y1)),(int(x1+(x2-x1)+5+210),int(y1+40)),colors[int(cls)],-1);    
                                         cv2.putText(im0, text_dis_avg, (int(x1+(x2-x1)+5), int(y1+30)), cv2.FONT_ITALIC, 1.2, (255, 255, 255), 3)
-                                        #将计算结果加载至判优函数
-                                        judge_priority.set_avg(round(dis_avg,3),int(x),float(x_end)/1000,float(y_end)/1000,label)
-                
+                                        
+                    #将计算结果加载至判优函数
+                    judge_priority.set_avg(round(dis_avg,3),int(x),float(x_end)/1000,float(y_end)/1000,label)
                 voice_.set_avg()
                 judge_priority.clear()
                     
