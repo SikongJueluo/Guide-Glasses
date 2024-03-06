@@ -5,6 +5,7 @@ import speech_recognition as sr
 import time
 import judge_priority
 import re
+from numpy import random
 
 #中文语音合成包目录,后期可加入英语等其他语言
 zh_voice_id = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_ZH-CN_HUIHUI_11.0"
@@ -91,13 +92,20 @@ def voice_broadcast():
         dis_1, dis_2 = data1['dis_avg'], data2['dis_avg']
         label_1, label_2 = data1['label'], data2['label']
         azimuth1, azimuth2 = get_azimuth(x1), get_azimuth(x2)
+
+        broadcast_sentence = [('请注意,%s距离您%0.1f米处有%s,%0.1f米处有%s','请注意,%s距离您%0.1f米处有%s,%s距离您%0.1f米处有%s','请注意,%s距离您%0.1f米处有%s'),
+                              ('请留意，%s距离您%0.1f米处有%s，%0.1f米处有%s', '请留意，%s距离您%0.1f米处有%s，%s距离您%0.1f米处有%s', '请留意，%s距离您%0.1f米处有%s'),
+                              ('请小心，%s距离您%0.1f米处有%s，%0.1f米处有%s', '请小心，%s距离您%0.1f米处有%s，%s距离您%0.1f米处有%s', '请小心，%s距离您%0.1f米处有%s'), 
+                              ('警告，%s距离您%0.1f米处有%s，%0.1f米处有%s', '警告，%s距离您%0.1f米处有%s，%s距离您%0.1f米处有%s', '警告，%s距离您%0.1f米处有%s')
+        ]
+        sen = random.randint(0,3)
         if (dis_1 > 0.1 and dis_1 <= 10 and label_1 != 0):
             if (dis_2 > 0.1 and dis_2 <= 10 and label_2 != 0 and azimuth1 == azimuth2):
-                engine_broadcast.say('请注意,%s距离您%0.1f米处有%s,%0.1f米处有%s' % (azimuth1, dis_1, label_1, dis_2, label_2))
+                engine_broadcast.say(broadcast_sentence[sen][0] % (azimuth1, dis_1, label_1, dis_2, label_2))
             elif (dis_2 > 0.1 and dis_2 <= 10 and label_2 != 0):
-                engine_broadcast.say('请注意,%s距离您%0.1f米处有%s,%s距离您%0.1f米处有%s' % (azimuth1, dis_1, label_1, azimuth2, dis_2, label_2))
+                engine_broadcast.say(broadcast_sentence[sen][1] % (azimuth1, dis_1, label_1, azimuth2, dis_2, label_2))
             else:
-                engine_broadcast.say('请注意,%s距离您%0.1f米处有%s' % (azimuth1, dis_1, label_1))
+                engine_broadcast.say(broadcast_sentence[sen][2] % (azimuth1, dis_1, label_1))
             engine_broadcast.runAndWait()
             engine_broadcast.stop()
         
