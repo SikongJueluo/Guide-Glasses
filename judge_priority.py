@@ -56,8 +56,11 @@ def clear():
     pq.clear()
 
 #输入至判优函数,弹出一个或两个对象
-def set_avg(dis_avg,x,x_avg,y_avg,label):
-    print(x_avg,y_avg)
+def set_avg(dis_avg,x,x_avg,y_avg,label,indexID): 
+    '''
+    输入参数分别为平均距离，输出画面中心点x坐标，空间坐标系x、y坐标，对象标签，跟踪器ID 
+    无return，函数处理结果为将对象信息加入优先队列
+    '''
     try:
         if label in object_weight:
             label_weight = object_weight[label][0]
@@ -99,11 +102,41 @@ def send_avgs():
     else:
         object = pq.pop()
         return object,empty 
+    
+#下面是一些想法
   
 #这一段用来拟合对象移动路线，根据对象的移动路径调整权重
-# def set_route(route):
+#因为汽车等目标的播报距离较长，通过这个函数可以判断是否可以调整权重减少播报频率
+# 
+    '''
+    这一段分为当用户静止时，当用户移动时
+    拟合线性函数(当用户前行，且目标向左右行驶)
+    '''
+    #当目标相对静止
+    #当目标相对向前移动
+    #当目标相对向左、右移动
+    #通过静止目标，如消防栓等判断用户是否移动
 '''
 载入对象位置参数： 只需要载入可能发生移动的对象
 使用一个列表存储所有的xy坐标当样本足够时，使用线性回归拟合出移动路线
 当预测到 如人，车，自行车向用户前方移动时，增加权重
 '''
+#这一段用来判断是否可能发生碰撞
+
+#这个列表用于存储当前帧出现的所有对象
+frame_objects = []
+class object_tracking:
+    def __init__(self):#创建对象
+        self.id_coordinates = {}
+    def set_route(x,y,id):#更新目标状态，发送是否需要broadcast
+        '''
+        三个参数分别为x，y坐标，跟踪器目标id
+        ''' 
+        pass
+    def if_moving(self):#判断是否为移动目标，判断是否正在移动
+        '''if id == "行人" or "狗" or "猫" or "自行车" or "摩托车" or "汽车" or "公交车":
+            if 
+        return 0'''
+        pass
+    def if_collision():#判断是否发生碰撞
+        pass 

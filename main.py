@@ -50,6 +50,7 @@ def detect(save_img=False):
     label = 0 
     x_end = 0
     y_end = 0
+    indexID = 0
     # 创建跟踪器
     tracker = Sort()
     ####
@@ -500,7 +501,7 @@ def detect(save_img=False):
                                         cv2.putText(im0, text_dis_avg, (int(x1+(x2-x1)+5), int(y1+30)), cv2.FONT_ITALIC, 1.2, (255, 255, 255), 3)
                                         
                     #将计算结果加载至判优函数
-                    judge_priority.set_avg(round(dis_avg,3),int(x),float(x_end)/1000,float(y_end)/1000,label)
+                    judge_priority.set_avg(round(dis_avg,3),int(x),float(x_end)/1000,float(y_end)/1000,label,indexID)
                 voice_.set_avg()
                 judge_priority.clear()
                     
